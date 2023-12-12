@@ -19,7 +19,7 @@ struct SrtToTxt: ParsableCommand {
     var srtSegments: [SrtSegment] = []
     
     /// 多少句合并成一段
-    let paragraphLineCount = 25
+    var paragraphLineCount = 25
     
     public mutating func run() throws {
         let fileUrls = readInputFilePath()
@@ -123,16 +123,25 @@ struct SrtToTxt: ParsableCommand {
                 guard textLineScanResult else {
                     throw ParseSubtitleError.InvalidFormat
                 }
-                textLines.append(textResult as! String)
+                if let res = textResult as? String {
+                    textLines.append(res)
+                }
             }
             
             guard indexScanSuccess && startTimeScanResult && dividerScanSuccess && endTimeScanResult else {
                 throw ParseSubtitleError.InvalidFormat
             }
             
-            let startTimeInterval: TimeInterval = timeIntervalFromString(startResult! as String)
-            let endTimeInterval: TimeInterval = timeIntervalFromString(endResult! as String)
+            var startTimeInterval: TimeInterval = 0
+            if let start = startResult as? String {
+                startTimeInterval = timeIntervalFromString(start)
+            }
             
+            var endTimeInterval: TimeInterval = 0
+            if endResult != nil {
+                endTimeInterval = timeIntervalFromString(endResult! as String)
+            }
+
             let srtSeg = SrtSegment(index: indexResult, texts: textLines, start: startTimeInterval, end: endTimeInterval)
             allTitles.append(srtSeg)
         }
@@ -158,13 +167,19 @@ struct SrtToTxt: ParsableCommand {
         scanner.scanLocation += 1
         scanner.scanUpToCharacters(from: CharacterSet.newlines, into: &millisecondsResult)
         
-        let secondsString = secondsResult! as String
-        let seconds = Int(secondsString)
+        var seconds = 0
+        if let secondsString = secondsResult as? String {
+            let removeNotDigits = secondsString.trimmingCharacters(in: CharacterSet(charactersIn: "0123456789.").inverted)
+            seconds = Int(removeNotDigits) ?? 0
+        }
+  
+        var milliseconds = 0
+        if let millisecondsResultString = millisecondsResult as? String {
+            let removeNotDigits = millisecondsResultString.trimmingCharacters(in: CharacterSet(charactersIn: "0123456789.").inverted)
+            milliseconds = Int(removeNotDigits) ?? 0
+        }
         
-        let millisecondsString = millisecondsResult! as String
-        let milliseconds = Int(millisecondsString)
-        
-        let timeInterval: Double = Double(hoursResult) * 3600 + Double(minutesResult) * 60 + Double(seconds!) + Double(Double(milliseconds!)/1000)
+        let timeInterval: Double = Double(hoursResult) * 3600 + Double(minutesResult) * 60 + Double(seconds) + Double(Double(milliseconds)/1000)
         
         return timeInterval as TimeInterval
     }
